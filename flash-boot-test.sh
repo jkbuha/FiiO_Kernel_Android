@@ -1,25 +1,45 @@
 #!/usr/bin/env bash
 # FiiO X5iii (RK3188) boot-test flash helper.
-# Strategy: back up the current boot partition, swap in ONLY the new kernel
-# (keeps the stock ramdisk / cmdline / load offsets), flash, reboot.
+#
+# Modes:
+#   ./flash-boot-test.sh --backup-only   Dump the current boot partition and stop.
+#   ./flash-boot-test.sh                 Back up, swap in the new kernel, flash, reboot.
+#
+# Strategy for the full run: back up the current boot partition, swap in ONLY the
+# new kernel (keeps the stock ramdisk / cmdline / load offsets), flash, reboot.
 # The backup doubles as your recovery image. RK3188 also has maskrom recovery,
 # so a bad kernel is recoverable, not a brick.
 #
 # Requires (AUR on CachyOS):  paru -S --needed android-tools rkflashtool abootimg
-# Run with the player connected. NOTHING is written until you type YES.
+#   (--backup-only needs only rkflashtool.)
+# Run with the player in loader mode. NOTHING is written until you type YES.
 set -e
+
+MODE=flash
+for a in "$@"; do
+  case "$a" in
+    --backup-only) MODE=backup ;;
+    -h|--help)
+      echo "usage: $0 [--backup-only]"
+      echo "  (no args)       back up boot, swap kernel, flash, reboot"
+      echo "  --backup-only   just dump the current boot partition, then stop"
+      exit 0 ;;
+    *) echo "!! unknown arg: $a  (see --help)"; exit 1 ;;
+  esac
+done
 
 KDIR="$(cd "$(dirname "$0")" && pwd)"
 IMG="$KDIR/arch/arm/boot/Image"
 OUT="$KDIR/flash-work"
 mkdir -p "$OUT"; cd "$OUT"
 
-echo "== checks =="
-[ -f "$IMG" ] || { echo "!! $IMG missing — build the kernel first"; exit 1; }
-for t in rkflashtool abootimg; do
-  command -v "$t" >/dev/null || { echo "!! missing tool: $t  (paru -S rkflashtool abootimg)"; exit 1; }
-done
-echo "kernel: $IMG ($(du -h "$IMG" | cut -f1))"
+echo "== checks (mode: $MODE) =="
+command -v rkflashtool >/dev/null || { echo "!! missing tool: rkflashtool  (paru -S rkflashtool)"; exit 1; }
+if [ "$MODE" = flash ]; then
+  command -v abootimg >/dev/null || { echo "!! missing tool: abootimg  (paru -S abootimg)"; exit 1; }
+  [ -f "$IMG" ] || { echo "!! $IMG missing — build the kernel first (./build.sh)"; exit 1; }
+  echo "new kernel: $IMG ($(du -h "$IMG" | cut -f1))"
+fi
 
 echo
 echo "== STEP 1: put the player into loader mode =="
@@ -31,13 +51,42 @@ rkflashtool n || { echo "!! rkflashtool can't see the device. Check cable/mode."
 
 echo
 echo "== STEP 2: back up the current boot partition (RECOVERY IMAGE) =="
-rkflashtool r boot > boot_stock.img
+if rkflashtool r boot > boot_stock.img 2>/dev/null && [ -s boot_stock.img ]; then
+  echo "read 'boot' partition by name."
+else
+  echo "!! 'rkflashtool r boot' (by name) failed — your rkflashtool build is the"
+  echo "   offset-based classic. Reading the partition table so you can dump by offset:"
+  rkflashtool p > parm.txt 2>/dev/null || true
+  echo "   ---- partitions (size@offset, in 512-byte sectors) ----"
+  grep -iE "CMDLINE|mtdparts|\(boot\)|@" parm.txt 2>/dev/null | head || cat parm.txt 2>/dev/null | head
+  echo "   -------------------------------------------------------"
+  echo "   Find the (boot) entry 'SIZE@OFFSET' and run, e.g.:"
+  echo "       rkflashtool r 0x10000 0x8000 > $OUT/boot_stock.img"
+  echo "   then re-run this script."
+  exit 1
+fi
 cp -f boot_stock.img boot_stock.SAVE.img     # pristine copy we never touch
 echo "backed up: $(ls -l boot_stock.img | awk '{print $5" bytes"}')  -> $OUT/boot_stock.SAVE.img"
 # sanity: Android boot images start with the magic "ANDROID!"
-head -c 8 boot_stock.img | grep -q "ANDROID!" \
-  && echo "boot image looks like standard Android format (good for abootimg)" \
-  || echo "NOTE: no ANDROID! magic — use the mkbootimg fallback below instead of abootimg."
+if head -c 8 boot_stock.img | grep -q "ANDROID!"; then
+  echo "boot image looks like standard Android format (good for abootimg)."
+  ANDROID_OK=1
+else
+  echo "NOTE: no ANDROID! magic at offset 0 — abootimg may not handle it;"
+  echo "      use the mkbootimg fallback printed at the end."
+  ANDROID_OK=0
+fi
+
+if [ "$MODE" = backup ]; then
+  echo
+  echo "== BACKUP COMPLETE — nothing was flashed. =="
+  echo "  saved: $OUT/boot_stock.SAVE.img"
+  echo "  restore anytime (in loader mode):"
+  echo "     rkflashtool w boot < $OUT/boot_stock.SAVE.img && rkflashtool b"
+  echo "  reboot the player now without changes:"
+  echo "     rkflashtool b"
+  exit 0
+fi
 
 echo
 echo "== STEP 3: swap in the new kernel (keeps stock ramdisk/cmdline/offsets) =="
