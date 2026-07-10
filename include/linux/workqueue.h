@@ -150,6 +150,17 @@ struct execute_work {
 	struct delayed_work n = __DELAYED_WORK_INITIALIZER(n, f, TIMER_DEFERRABLE)
 
 /*
+ * Backward-compat shim: some LINUX_VERSION_CODE-gated vendor drivers (e.g. the
+ * ARM Mali GPU driver) still reference the pre-3.7 2-arg
+ * __DEFERRED_WORK_INITIALIZER for a deferrable delayed_work. This tree carries
+ * the 3.7+ workqueue API, so map it onto the new 3-arg initializer.
+ */
+#ifndef __DEFERRED_WORK_INITIALIZER
+#define __DEFERRED_WORK_INITIALIZER(n, f)				\
+	__DELAYED_WORK_INITIALIZER(n, f, TIMER_DEFERRABLE)
+#endif
+
+/*
  * initialize a work item's function pointer
  */
 #define PREPARE_WORK(_work, _func)					\
