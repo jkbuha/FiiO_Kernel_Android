@@ -92,7 +92,6 @@ extern void setup_node_to_cpumask_map(void);
 
 #define pcibus_to_node(bus) __pcibus_to_node(bus)
 
-<<<<<<< HEAD
 #ifdef CONFIG_X86_32
 # define SD_CACHE_NICE_TRIES	1
 # define SD_IDLE_IDX		1
@@ -132,8 +131,6 @@ extern void setup_node_to_cpumask_map(void);
 }
 
 #ifdef CONFIG_X86_64
-=======
->>>>>>> cb83b629bae... sched/numa: Rewrite the CONFIG_NUMA sched domain support
 extern int __node_distance(int, int);
 #define node_distance(a, b) __node_distance(a, b)
 #endif

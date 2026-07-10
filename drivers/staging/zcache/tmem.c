@@ -684,10 +684,6 @@ out:
 }
 
 /*
-<<<<<<< HEAD
-=======
->>>>>>> parent of bb3241d... backport zcache and zsmalloc from 3.4 kernel
-=======
  * If a page in tmem matches the handle, replace the page so that any
  * subsequent "get" gets the new page.  Returns 0 if
  * there was a page to replace, else returns -1.
@@ -712,7 +708,6 @@ out:
 }
 
 /*
->>>>>>> parent of 0d1ecad... Lz4 for Zram
  * "Flush" all pages in tmem matching this oid.
  */
 int tmem_flush_object(struct tmem_pool *pool, struct tmem_oid *oidp)

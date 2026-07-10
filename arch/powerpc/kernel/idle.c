@@ -93,16 +93,9 @@ void cpu_idle(void)
 
 		HMT_medium();
 		ppc64_runlatch_on();
-<<<<<<< HEAD
 		tick_nohz_restart_sched_tick();
 		preempt_enable_no_resched();
 		if (cpu_should_die())
-=======
-		rcu_idle_exit();
-		tick_nohz_idle_exit();
-		if (cpu_should_die()) {
-			sched_preempt_enable_no_resched();
->>>>>>> ba74c1448f1... sched/rt: Document scheduler related skip-resched-check sites
 			cpu_die();
 		schedule();
 		preempt_disable();

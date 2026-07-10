@@ -105,12 +105,7 @@ void cpu_idle(void)
 		preempt_enable_no_resched();
 
 #ifdef CONFIG_HOTPLUG_CPU
-<<<<<<< HEAD
 		if (cpu_is_offline(cpu))
-=======
-		if (cpu_is_offline(cpu)) {
-			sched_preempt_enable_no_resched();
->>>>>>> ba74c1448f1... sched/rt: Document scheduler related skip-resched-check sites
 			cpu_play_dead();
 #endif
 
