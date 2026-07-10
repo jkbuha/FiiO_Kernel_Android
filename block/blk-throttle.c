@@ -1249,7 +1249,7 @@ int blk_throtl_init(struct request_queue *q)
 	td->queue = q;
 
 	/* activate policy */
-	ret = blkcg_activate_policy(q, &blkio_policy_throtl);
+	ret = blkcg_activate_policy(q, &blkcg_policy_throtl);
 	if (ret)
 		kfree(td);
 	return ret;
@@ -1259,7 +1259,7 @@ void blk_throtl_exit(struct request_queue *q)
 {
 	BUG_ON(!q->td);
 	throtl_shutdown_wq(q);
-	blkcg_deactivate_policy(q, &blkio_policy_throtl);
+	blkcg_deactivate_policy(q, &blkcg_policy_throtl);
 	kfree(q->td);
 }
 
