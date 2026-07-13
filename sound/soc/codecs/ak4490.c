@@ -70,8 +70,12 @@ static uint8_t first_play=0;
 int pmute=2000;
 module_param_named(po_mute, pmute, int, 0644);
 
-int selected_filter = 1; // 1 slow roll-off, 2 short delay sharp, 3 sharp, 4 short delay slow
-module_param(selected_filter, int, 0644);
+/* Digital-filter selector for BOTH AK4490 DACs. Values follow enum lpf_type:
+ * 0=sharp, 1=slow, 2=short-delay-sharp, 3=short-delay-slow, 4=super-slow roll-off.
+ * Writable via /sys/module/snd_soc_ak4490/parameters/selected_filter and applied to
+ * the DACs immediately on write (see ak4490_selected_filter_ops, defined below once
+ * ak4490_set_lpf()/gpak4490 are in scope). Default 0 = AKM power-on sharp roll-off. */
+int selected_filter = LPF_SHARP_ROLL_OFF;
 int oversampling_freq = 384000; // allow to set custom oversampting rate
 module_param(oversampling_freq, int, 0644);
 int superslow = 0; // 0 - disable superslow filter, 1 - enable superslow filter
@@ -817,7 +821,8 @@ void ak4490_set_lpf(enum lpf_type lpf)
     SD   =((u8)lpf &0x02)>>1 <<5;
     SLOW =((u8)lpf &0x01)>>0 <<0;
 
-        
+    akdbgprt("[AK4490] set_lpf type=%d (SSLOW=%d SD=%d SLOW=%d)\n",
+             (int)lpf, SSLOW?1:0, SD?1:0, SLOW?1:0);
 
     ak4490_update_bits_lr('L',AK4490_05_CONTROL4,0x01,SSLOW);
     ak4490_update_bits_lr('L',AK4490_01_CONTROL2,0x20,SD);
@@ -858,6 +863,32 @@ enum lpf_type ak4490_get_lpf_type()
 
     return (enum lpf_type) type;
 }
+
+/* Apply the digital-filter selection to both DACs when userspace writes the
+ * selected_filter module param (e.g. `echo 2 > .../parameters/selected_filter`). */
+static int ak4490_selected_filter_set(const char *val,
+				      const struct kernel_param *kp)
+{
+	int f, rv;
+
+	/* Validate before committing so a bad write leaves the current value intact. */
+	rv = kstrtoint(val, 0, &f);
+	if (rv)
+		return rv;
+	if (f < LPF_SHARP_ROLL_OFF || f > LPF_SUPPER_SLOW_ROLL_OFF)
+		return -EINVAL;
+	selected_filter = f;
+	if (gpak4490)		/* codec probed: apply now (else next write applies it) */
+		ak4490_set_lpf((enum lpf_type)f);
+	return 0;
+}
+
+static const struct kernel_param_ops ak4490_selected_filter_ops = {
+	.set = ak4490_selected_filter_set,
+	.get = param_get_int,
+};
+module_param_cb(selected_filter, &ak4490_selected_filter_ops,
+		&selected_filter, 0644);
 
 static void ak4490_set_mono_lr()
 {
