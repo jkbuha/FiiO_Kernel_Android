@@ -74,8 +74,11 @@ module_param_named(po_mute, pmute, int, 0644);
  * 0=sharp, 1=slow, 2=short-delay-sharp, 3=short-delay-slow, 4=super-slow roll-off.
  * Writable via /sys/module/snd_soc_ak4490/parameters/selected_filter and applied to
  * the DACs immediately on write (see ak4490_selected_filter_ops, defined below once
- * ak4490_set_lpf()/gpak4490 are in scope). Default 0 = AKM power-on sharp roll-off. */
-int selected_filter = LPF_SHARP_ROLL_OFF;
+ * ak4490_set_lpf()/gpak4490 are in scope). Default 1 = slow roll-off. It is the
+ * single source of truth: the playback path (ak4490_set_dai_fmt) re-applies it on
+ * every stream setup, so the selection survives track/rate changes and honours a
+ * live sysfs write. */
+int selected_filter = LPF_SLOW_ROLL_OFF;
 int oversampling_freq = 384000; // allow to set custom oversampting rate
 module_param(oversampling_freq, int, 0644);
 int superslow = 0; // 0 - disable superslow filter, 1 - enable superslow filter
@@ -1231,7 +1234,7 @@ static int ak4490_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
     msleep(2000);
 #endif
 
-    ak4490_set_lpf(gak4490_defalult_lpf);
+    ak4490_set_lpf((enum lpf_type)selected_filter);	/* apply user-selected filter (default slow), re-set here because CONTROL3 write above clobbers the SLOW bit */
     /* set mono mode L R  for two DAC */
     ak4490_set_mono_lr();
 #ifdef POP_DEBUG
