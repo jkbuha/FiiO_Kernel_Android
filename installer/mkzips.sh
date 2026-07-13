@@ -36,7 +36,7 @@ PY
 }
 
 cd "$KROOT"
-for V in 1416 1752 2016; do
+for V in 1416 1704 2016; do
   echo "===================== BUILDING $V MHz ====================="
   set_cap "$V"
   grep -n 'define RK3188_T_LIMIT_FREQ' "$CPUFREQ"
