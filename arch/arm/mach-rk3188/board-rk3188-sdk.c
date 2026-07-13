@@ -3604,8 +3604,8 @@ static void __init rk30_reserve(void)
 #if defined(CONFIG_ARCH_RK3188)
 //new_FiiO_tables
 static struct cpufreq_frequency_table dvfs_arm_table_volt_level0[] = {
-	{.frequency = 312 * 1000,		.index = 825 * 1000},
-	{.frequency = 504 * 1000,		.index = 850 * 1000},
+//	{.frequency = 312 * 1000,		.index = 825 * 1000},	// disabled: 825mV under-volts this OPP -> screen-off idle wedge (FiiO's other tables use 850-950mV for 312)
+//      {.frequency = 504 * 1000,               .index = 825 * 1000},	// disabled with 312: keep 696@875 as the stable floor FiiO shipped
         {.frequency = 696 * 1000,               .index = 875 * 1000},
         {.frequency = 816 * 1000,               .index = 900 * 1000},
         {.frequency = 1008 * 1000,              .index = 950 * 1000},
