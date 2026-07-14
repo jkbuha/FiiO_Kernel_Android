@@ -186,6 +186,19 @@ static struct cpufreq_frequency_table temp_limits_cpu_perf_3028a[] = {
 	{.frequency = 1200 * 1000, .index = 0},
 };
 #else /* 3188/3168 etc */
+/*
+ * Sustained multi-core clock ceiling. rk3188_get_temp() returns a constant 60
+ * (no live die sensor on the X5iii), so the selection loop always lands on the
+ * .index==60 column below — the @50/@55/@75 rows are effectively inert. Thus
+ * the @60 entry per busy-core-count IS the fixed sustained cap.
+ *
+ * jkbuha: raised each @60 cap one DVFS step for more sustained headroom on the
+ * 1704/2016 builds (the 1416 build stays clamped by RK3188_T_LIMIT_FREQ):
+ *   2 busy 1752 -> 1896, 3 busy 1608 -> 1752, 4 busy 1416 -> 1608.
+ * @75 rows are left as the conservative fallback should a real sensor ever be
+ * wired. Trade-off: more heat under sustained all-core load, with nothing to
+ * throttle it back — per-unit; validate on hardware.
+ */
 static struct cpufreq_frequency_table temp_limits[4][4] = {
 	{	// 1 CPU busy
 		{.frequency =          -1, .index = 50},
@@ -195,17 +208,17 @@ static struct cpufreq_frequency_table temp_limits[4][4] = {
 	}, {	// 2 CPUs busy
 		{.frequency = 2016 * 1000, .index = 50},
 		{.frequency = 1896 * 1000, .index = 55},
-		{.frequency = 1752 * 1000, .index = 60},
+		{.frequency = 1896 * 1000, .index = 60},	// was 1752
 		{.frequency = 1608 * 1000, .index = 75},
 	}, {	// 3 CPUs busy
 		{.frequency = 1896 * 1000, .index = 50},
 		{.frequency = 1752 * 1000, .index = 55},
-		{.frequency = 1608 * 1000, .index = 60},
+		{.frequency = 1752 * 1000, .index = 60},	// was 1608
 		{.frequency = 1416 * 1000, .index = 75},
 	}, {	// 4 CPUs busy
 		{.frequency = 1752 * 1000, .index = 50},
 		{.frequency = 1608 * 1000, .index = 55},
-		{.frequency = 1416 * 1000, .index = 60},
+		{.frequency = 1608 * 1000, .index = 60},	// was 1416
 		{.frequency = 1200 * 1000, .index = 75},
 	}
 };
