@@ -1638,6 +1638,42 @@ void thermal_contrller(struct bq2589x *bq){
 			bq2589x_adc_read_charge_current(bq),thermal_s);
 }
 extern dwc_vbus_status();
+/*
+ * Battery-longevity charge limit.
+ *
+ * When set, charging is stopped once the battery reaches charge_limit% and
+ * resumed only after it falls CHARGE_LIMIT_HYST% below, so the Li-ion pack is
+ * spared from sitting at a constant high float voltage (the main driver of
+ * calendar ageing). 0 = off (charge to full, stock behaviour).
+ *
+ *   echo 80 > /sys/module/bq2589x_charger/parameters/charge_limit   # cap at 80%
+ *   echo 0  > /sys/module/bq2589x_charger/parameters/charge_limit   # disable, charge to full
+ */
+#define CHARGE_LIMIT_MIN   50
+#define CHARGE_LIMIT_HYST  3
+static int charge_limit;          /* 0 = off; 50..99 = stop-charge SOC% */
+static bool g_chg_stopped;        /* charger currently held off by us (limit or full) */
+
+static int charge_limit_set(const char *val, const struct kernel_param *kp)
+{
+	int l, rv = kstrtoint(val, 0, &l);
+	if (rv)
+		return rv;
+	if (l != 0 && (l < CHARGE_LIMIT_MIN || l > 99))
+		return -EINVAL;          /* commit only after validation */
+	charge_limit = l;
+	if (g_bq)                        /* re-evaluate now rather than up to 10s later */
+		schedule_delayed_work(&g_bq->monitor_work, 0);
+	return 0;
+}
+static const struct kernel_param_ops charge_limit_ops = {
+	.set = charge_limit_set,
+	.get = param_get_int,
+};
+module_param_cb(charge_limit, &charge_limit_ops, &charge_limit, 0644);
+MODULE_PARM_DESC(charge_limit,
+	"Stop charging at this battery % (0=off, 50-99); spares the pack from full-float wear");
+
 static void bq2589x_monitor_workfunc(struct work_struct *work)
 {
 	struct bq2589x *bq = container_of(work, struct bq2589x, monitor_work.work);
@@ -1646,7 +1682,6 @@ static void bq2589x_monitor_workfunc(struct work_struct *work)
 	int chg_current;
         int usb_status = dwc_vbus_status();
         static bool usb_flag;
-        static bool disable_flag;
 
         /* if (usb_status == 1 && !usb_flag) { */
             /* bq2589x_force_dpdm(bq); */
@@ -1682,14 +1717,31 @@ static void bq2589x_monitor_workfunc(struct work_struct *work)
 		schedule_delayed_work(&bq->pe_volt_tune_work, 0);
 	}
 
-        if (bq->rsoc == 100 && chg_current <= 85 /*500*/ && !disable_flag) {
-            dprintk(0,bq->dev, "%s:  charger  done,  and disable  charger!\n", __func__);
-	    ret = bq2589x_disable_charger(bq);	
-	    if (ret < 0) {
-		dev_err(bq->dev,"%s:failed to disable charger\n",__func__);
-                disable_flag = false;
-	    } else {
-                disable_flag = true;
+        if (charge_limit >= CHARGE_LIMIT_MIN && charge_limit < 100) {
+            /* battery-longevity cap: hold charging in a hysteresis band below the limit */
+            if (bq->rsoc >= charge_limit && !g_chg_stopped) {
+                dprintk(0,bq->dev, "%s: rsoc %d%% reached charge_limit %d%%, stopping charge\n", __func__, bq->rsoc, charge_limit);
+                if (bq2589x_disable_charger(bq) == 0)
+                    g_chg_stopped = true;
+                else
+                    dev_err(bq->dev,"%s:failed to disable charger\n",__func__);
+            } else if (bq->rsoc <= charge_limit - CHARGE_LIMIT_HYST && g_chg_stopped) {
+                dprintk(0,bq->dev, "%s: rsoc %d%% fell below charge_limit-%d, resuming charge\n", __func__, bq->rsoc, CHARGE_LIMIT_HYST);
+                if (bq2589x_enable_charger(bq) == 0)
+                    g_chg_stopped = false;
+            }
+        } else {
+            /* limit off: stock full-charge termination, and resume if the cap was just cleared */
+            if (g_chg_stopped && bq->rsoc < 100) {
+                dprintk(0,bq->dev, "%s: charge_limit cleared, resuming charge\n", __func__);
+                if (bq2589x_enable_charger(bq) == 0)
+                    g_chg_stopped = false;
+            } else if (bq->rsoc == 100 && chg_current <= 85 /*500*/ && !g_chg_stopped) {
+                dprintk(0,bq->dev, "%s:  charger  done,  and disable  charger!\n", __func__);
+                if (bq2589x_disable_charger(bq) == 0)
+                    g_chg_stopped = true;
+                else
+                    dev_err(bq->dev,"%s:failed to disable charger\n",__func__);
             }
         }
 
