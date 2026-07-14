@@ -35,6 +35,7 @@ Toolchain: Linaro GCC 4.9.4-2017.01 · Base: Linux 3.0.101+ · Android 5.1.1
 - `build.sh` — reconstructs the original Linaro 4.9.4-2017.01 toolchain build recipe `[ad15cef1]`
 - `flash-boot-test.sh` — backup/flash helper with `--backup-only` `[5a26ed03, 137fcd2d]`
 - `installer/` — ROM-agnostic TWRP/AROMA installer: keeps the user's ramdisk, swaps only the kernel, and **recomputes the RK boot ID** so the bootloader accepts it (no drop to recovery). Includes `mkzips.sh` packager, the `rkbootrepack` tool, and the 1416/1704/2016 zips `[88e8b097]`
+- `installer/mkbootimgs.sh` — packager for prispewnic's **AROMA "MULTI" installer**: builds the three kernel variants (#350) and wraps each into a full standalone `boot.img` (kernel + stock ramdisk + recomputed RK boot-id) for the `kernels/{1416,1704,2016}/` slots, plus the untouched baseline image in `1416s/` (the "Restore Stock Kernel" slot). Output: `FiiO-X5iii-jkbuha-V3.5-TWRP-MULTI.zip` `[238518f2]`
 
 ### Notes
 Device-side changes made during development but **not part of this kernel** (apply separately if desired): governor swap to a tuned CAF `interactive` (init.d `60Main`), `audio.offload.disable=1` (`build.prop`, avoids a ViPER4Android + compress-offload AudioFlinger crash), and the Google Play Services / GApps restoration.
