@@ -205,6 +205,16 @@ config CPU_FREQ_GOV_INTERACTIVEX
 	    This governor uses hotplug to shutdown and start up cpu1 when suspended.
 	    If in doubt, say N.
 
+config CPU_FREQ_GOV_SMARTASSV2
+	tristate "'smartassV2' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	   'smartassV2' - a smart governor (Erasmux) based on interactive that uses
+	    separate ideal frequencies for screen-on (awake_ideal_freq) and
+	    screen-off (sleep_ideal_freq): responsive when awake, frugal when the
+	    display sleeps. Pure-frequency (no hotplug) — suits the X5iii DAP.
+	    If in doubt, say N.
+
 config CPU_FREQ_GOV_NEOX
         tristate "'NeoX' cpufreq governor"
         depends on CPU_FREQ
