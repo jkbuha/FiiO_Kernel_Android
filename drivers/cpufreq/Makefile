@@ -12,7 +12,6 @@ obj-$(CONFIG_CPU_FREQ_GOV_CONSERVATIVE)	+= cpufreq_conservative.o
 obj-$(CONFIG_CPU_FREQ_GOV_PEGASUSQ)     += cpufreq_pegasusq.o
 obj-$(CONFIG_CPU_FREQ_GOV_INTERACTIVE)	+= cpufreq_interactive.o
 obj-$(CONFIG_CPU_FREQ_GOV_INTERACTIVEX)	+= cpufreq_interactiveX.o
-obj-$(CONFIG_CPU_FREQ_GOV_SMARTASSV2)	+= cpufreq_smartassv2.o
 obj-$(CONFIG_CPU_FREQ_GOV_NEOX)		+= cpufreq_neox.o
 obj-$(CONFIG_CPU_BOOST)			+= cpu-boost.o
 obj-$(CONFIG_DSBOOST)			+= dsboost.o
